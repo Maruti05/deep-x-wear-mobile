@@ -1,98 +1,141 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Carousel } from "@/components/bussiness/Carousel";
+import { ProductCard } from "@/components/bussiness/ProductCart";
+import LoadingScreen from "@/components/common/LoadingScreen";
+import { Colors } from "@/constants/theme";
+import { useProducts } from "@/hooks/useProducts";
+import { Box, Text } from "@gluestack-ui/themed";
+import {
+  BottomSheetModal,
+  BottomSheetModalProvider,
+} from "@gorhom/bottom-sheet";
+import { useNavigation } from "expo-router";
+import { Filter } from "lucide-react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { FlatList, Image, Pressable, RefreshControl } from "react-native";
+import { ProductType } from "../types/ProductType";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+// Import Filter Component
+import { FilterBottomSheet } from "@/components/common/FilterBottomSheet";
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
+export default function Home() {
+  const { refresh, isError, isLoading, products } = useProducts();
+  const trendyImages =
+    products
+      ?.filter((p: ProductType) => p.is_trendy)
+      .map((p) => p.main_image_url) || [];
+
+  const navigation = useNavigation();
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+
+ const openFilter = useCallback(() => {
+  if (bottomSheetModalRef.current) {
+    bottomSheetModalRef.current.snapToIndex(0);
+  } else {
+    console.log("Ref is null!");
+  }
+}, []);
+
+  // Filter states
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedGender, setSelectedGender] = useState<string | null>(null);
+
+  // Filter logic
+  const filteredProducts = products?.filter((p: ProductType) => {
+    let matchCategory = selectedCategory
+      ? p.category_id === selectedCategory
+      : true;
+    let matchGender = selectedGender ? p.description === selectedGender : true;
+    return matchCategory && matchGender;
+  });
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: () => (
         <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+          source={require("@/assets/images/logo-d.svg")} // replace with your logo
+          style={{
+            width: 'auto',
+            height: 40,
+            resizeMode: "contain",
+            tintColor: "transparent",
+          }}
+          // tintColor={Colors.dark.text}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+      ),
+      headerRight: () => (
+        <Pressable onPress={openFilter} style={{ paddingRight: 16 }}>
+          <Filter size={24} color={Colors.light.text} />
+        </Pressable>
+      ),
+      headerTitleAlign: "left",
+    });
+  }, [navigation]);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  if (isLoading && !products?.length) {
+    return <LoadingScreen message="Loading ..." />;
+  }
+
+  if (isError) {
+    return (
+      <Box flex={1} justifyContent="center" alignItems="center" padding={16}>
+        <Text style={{ fontSize: 18, fontWeight: "700" }}>
+          Failed to load products. Pull to refresh.
+        </Text>
+      </Box>
+    );
+  }
+
+  return (
+    <>
+      <BottomSheetModalProvider>
+        <Box style={{ flex: 1 }} paddingHorizontal={2}>
+          {/* Carousel */}
+
+          {/* Product List */}
+          <FlatList
+            data={filteredProducts}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => <ProductCard {...item} item={item} />}
+            numColumns={2}
+            ItemSeparatorComponent={() => <Box height={2} />}
+            refreshControl={
+              <RefreshControl refreshing={isLoading} onRefresh={refresh} />
+            }
+            removeClippedSubviews
+            initialNumToRender={8}
+            maxToRenderPerBatch={12}
+            windowSize={10}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingBottom: 80,
+              paddingTop: 10,
+              paddingHorizontal: 4,
+            }}
+            ListHeaderComponent={
+              trendyImages.length > 0 ? (
+                <Carousel
+                  items={trendyImages}
+                  autoPlay
+                  onPressItem={(uri, idx) => console.log("Pressed", idx, uri)}
+                  height={350}
+                />
+              ) : null
+            }
+          />
+        </Box>
+
+        {/* Filter Bottom Sheet */}
+        <FilterBottomSheet
+          ref={bottomSheetModalRef}
+          selectedCategory={selectedCategory}
+          selectedGender={selectedGender}
+          onApply={(cat, gender) => {
+            setSelectedCategory(cat);
+            setSelectedGender(gender);
+            bottomSheetModalRef.current?.dismiss();
+          }}
+        />
+      </BottomSheetModalProvider>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
