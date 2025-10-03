@@ -10,5 +10,13 @@ export default {
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
     },
     plugins: ["expo-secure-store", "expo-router", "expo-web-browser"],
+
+    android: {
+      package: "com.marutimangrani.deepxwearmobile",
+    },
+
+    ios: {
+      bundleIdentifier: "com.marutimangrani.deepxwearmobile",
+    },
   },
 };
