@@ -19,3 +19,11 @@ export type CartContextType = {
   removeFromCart: (index: number) => void;
   clearCart: () => void;
 };
+export interface CartItemProps {
+  item: CartItem; // Ideally should be your cart item type, e.g. CartItem or ProductType
+  i: number;
+  selected: boolean;
+  onSelect: (index: number) => void;
+  updateCartItem: (index: number, changes: Partial<any>) => void; // Replace any with CartItem type
+  removeFromCart: (index: number) => void;
+}

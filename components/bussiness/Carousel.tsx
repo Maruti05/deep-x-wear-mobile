@@ -1,5 +1,6 @@
-import { Box, useTheme } from "@gluestack-ui/themed";
-import React, { useEffect, useRef, useState } from "react";
+import { Box } from "@gluestack-ui/themed";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -8,11 +9,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-// Replace this:
-// import LinearGradient from 'react-native-linear-gradient';
-
-// With this:
-import { LinearGradient } from "expo-linear-gradient";
 
 interface CarouselProps {
   items: string[];
@@ -22,6 +18,14 @@ interface CarouselProps {
   onPressItem?: (uri: string, index: number) => void;
 }
 
+// Memoized carousel image for performance
+const CarouselImage = memo(({ uri, width, height }: { uri: string, width: number, height: number }) => (
+  <Animated.Image
+    source={{ uri }}
+    style={{ width, height, resizeMode: "cover" }}
+  />
+));
+
 export function Carousel({
   items,
   autoPlay = true,
@@ -30,67 +34,111 @@ export function Carousel({
   onPressItem,
 }: CarouselProps) {
   const { width } = useWindowDimensions();
-   const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme();
   const ITEM_WIDTH = width;
   const CARD_HEIGHT = height ?? Math.round(ITEM_WIDTH * 0.56);
-  const theme = useTheme();
 
-  if (!items || items.length === 0) return null;
-
+  // All refs/hooks at the top for rules
   const flatListRef = useRef<FlatList<string>>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const [currentIndex, setCurrentIndex] = useState(0);
   const isInteractingRef = useRef(false);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-play logic
-  const stopAuto = () => {
-    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
-  };
+  // Gradient colors for black and white theme
+  const gradientColors: [string, string] = colorScheme === 'dark'
+    ? ['#222', '#181818']
+    : ['#fff', '#e5e5e5'];
 
-  const scheduleNext = () => {
+  // Stable key extractor and renderItem
+  const keyExtractor = useCallback((_: string, idx: number) => `carousel-${idx}`, []);
+  const renderItem = useCallback(
+    ({ item, index }: { item: string; index: number }) => {
+      const inputRange = [
+        (index - 1) * ITEM_WIDTH,
+        index * ITEM_WIDTH,
+        (index + 1) * ITEM_WIDTH,
+      ];
+      const scale = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.97, 1, 0.97],
+        extrapolate: "clamp",
+      });
+      const opacity = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.8, 1, 0.8],
+        extrapolate: "clamp",
+      });
+      const translateY = scrollX.interpolate({
+        inputRange,
+        outputRange: [18, 0, 18],
+        extrapolate: "clamp",
+      });
+      return (
+        <Pressable
+          onPress={() => onPressItem?.(item, index)}
+          style={{ width: ITEM_WIDTH, height: CARD_HEIGHT }}
+        >
+          <Animated.View
+            style={{
+              flex: 1,
+              borderRadius: 16,
+              overflow: "hidden",
+              transform: [{ scale }, { translateY }],
+              opacity,
+              backgroundColor: "#fff",
+              shadowColor: "#111827",
+              shadowOffset: { width: 0, height: 7 },
+              shadowOpacity: 0.14,
+              shadowRadius: 23,
+              elevation: 9,
+            }}
+          >
+            <CarouselImage uri={item} width={ITEM_WIDTH} height={CARD_HEIGHT} />
+          </Animated.View>
+        </Pressable>
+      );
+    },
+    [onPressItem, ITEM_WIDTH, CARD_HEIGHT, scrollX]
+  );
+
+  // Auto-play management
+  const stopAuto = useCallback(() => {
+    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+  }, []);
+  const scheduleNext = useCallback(() => {
     stopAuto();
     if (!autoPlay || items.length < 2) return;
-
     autoTimerRef.current = setTimeout(() => {
       if (!autoPlay || isInteractingRef.current) return scheduleNext();
       const nextIndex = (currentIndex + 1) % items.length;
-      Animated.spring(scrollX, {
-        toValue: nextIndex * ITEM_WIDTH,
-        useNativeDriver: true,
-        speed: 20,
-        bounciness: 8,
-      }).start();
       flatListRef.current?.scrollToOffset({
         offset: nextIndex * ITEM_WIDTH,
         animated: true,
       });
       setCurrentIndex(nextIndex);
-      scheduleNext();
     }, interval);
-  };
+  }, [autoPlay, currentIndex, interval, items.length, ITEM_WIDTH, stopAuto]);
 
   useEffect(() => {
     if (autoPlay) scheduleNext();
     return stopAuto;
-  }, [currentIndex, autoPlay, interval]);
+  }, [scheduleNext, autoPlay, stopAuto]);
 
-  const onMomentumScrollEnd = (e: any) => {
-    const offsetX = e.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / ITEM_WIDTH);
-    setCurrentIndex(index);
-    isInteractingRef.current = false;
-  };
+  const onMomentumScrollEnd = useCallback(
+    (e: any) => {
+      const offsetX = e.nativeEvent.contentOffset.x;
+      const index = Math.round(offsetX / ITEM_WIDTH);
+      setCurrentIndex(index);
+      isInteractingRef.current = false;
+    },
+    [ITEM_WIDTH]
+  );
 
-  // Gradient colors for black & white theme
-  const gradientColors: [string, string] = colorScheme === 'dark'
-  ? ['#1E1E1E', '#2C2C2C']
-  : ['#FFFFFF', '#E5E5E5'];
-
+  if (!items || items.length === 0) return null;
 
   return (
-    <Box>
-      {/* Background Gradient */}
+    <Box style={{ width: ITEM_WIDTH, alignSelf: "center" }}>
       <LinearGradient
         colors={gradientColors}
         style={{
@@ -98,13 +146,13 @@ export function Carousel({
           height: CARD_HEIGHT,
           position: "absolute",
           top: 0,
+          left: 0,
         }}
       />
-
       <Animated.FlatList
         ref={flatListRef as any}
         data={items}
-        keyExtractor={(_, idx) => `carousel-${idx}`}
+        keyExtractor={keyExtractor}
         horizontal
         showsHorizontalScrollIndicator={false}
         bounces
@@ -118,77 +166,26 @@ export function Carousel({
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: true }
         )}
-        renderItem={({ item, index }) => {
-          const inputRange = [
-            (index - 1) * ITEM_WIDTH,
-            index * ITEM_WIDTH,
-            (index + 1) * ITEM_WIDTH,
-          ];
-
-          const scale = scrollX.interpolate({
-            inputRange,
-            outputRange: [0.95, 1, 0.95],
-            extrapolate: "clamp",
-          });
-          const opacity = scrollX.interpolate({
-            inputRange,
-            outputRange: [0.7, 1, 0.7],
-            extrapolate: "clamp",
-          });
-          const translateX = scrollX.interpolate({
-            inputRange,
-            outputRange: [-30, 0, 30],
-            extrapolate: "clamp",
-          });
-
-          return (
-            <Pressable
-              onPress={() => onPressItem?.(item, index)}
-              style={{ width: ITEM_WIDTH, height: CARD_HEIGHT }}
-            >
-              <Animated.View
-                style={{
-                  flex: 1,
-                  transform: [{ scale }, { translateX }],
-                  opacity,
-                }}
-              >
-                <Animated.Image
-                  source={{ uri: item }}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    resizeMode: "cover",
-                    borderRadius: 0,
-                  }}
-                />
-              </Animated.View>
-            </Pressable>
-          );
-        }}
+        renderItem={renderItem}
+        style={{ zIndex: 9 }}
       />
-
-      {/* Dots indicator */}
       <View
-        style={{ flexDirection: "row", justifyContent: "center", marginTop: 8 }}
+        style={{ flexDirection: "row", justifyContent: "center", marginTop: 12 }}
       >
         {items.map((_, i) => {
+          const inputRange = [
+            (i - 1) * ITEM_WIDTH,
+            i * ITEM_WIDTH,
+            (i + 1) * ITEM_WIDTH,
+          ];
           const opacity = scrollX.interpolate({
-            inputRange: [
-              (i - 1) * ITEM_WIDTH,
-              i * ITEM_WIDTH,
-              (i + 1) * ITEM_WIDTH,
-            ],
+            inputRange,
             outputRange: [0.4, 1, 0.4],
             extrapolate: "clamp",
           });
           const scale = scrollX.interpolate({
-            inputRange: [
-              (i - 1) * ITEM_WIDTH,
-              i * ITEM_WIDTH,
-              (i + 1) * ITEM_WIDTH,
-            ],
-            outputRange: [0.8, 1.2, 0.8],
+            inputRange,
+            outputRange: [0.8, 1.22, 0.8],
             extrapolate: "clamp",
           });
           return (
@@ -198,7 +195,7 @@ export function Carousel({
                 height: 8,
                 width: 8,
                 borderRadius: 4,
-                marginHorizontal: 4,
+                marginHorizontal: 5,
                 backgroundColor: "#3B82F6",
                 opacity,
                 transform: [{ scale }],

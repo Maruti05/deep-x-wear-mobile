@@ -15,7 +15,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 
@@ -29,6 +29,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+         <SafeAreaView style={{ flex: 1, backgroundColor: "#f6f7fb" }} edges={['top', 'left', 'right']}>
         <GluestackUIProvider>
           <ThemeProvider
             value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
@@ -48,6 +49,7 @@ export default function RootLayout() {
             </AuthProvider>
           </ThemeProvider>
         </GluestackUIProvider>
+        </SafeAreaView>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

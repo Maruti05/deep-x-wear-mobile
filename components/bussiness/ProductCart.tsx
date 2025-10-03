@@ -2,15 +2,15 @@ import { ProductType } from "@/app/types/ProductType";
 import { Badge, Box, Card, Text } from "@gluestack-ui/themed";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React from "react";
-import { TouchableOpacity } from "react-native";
+import React, { memo } from "react";
+import { StyleSheet, TouchableOpacity } from "react-native";
 
 interface ProductCardProps extends ProductType {
   item?: ProductType;
   onPress?: (item: ProductType) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({
+export const ProductCard: React.FC<ProductCardProps> = memo(({
   description,
   discount,
   main_image_url: mainImageUrl,
@@ -24,50 +24,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const router = useRouter();
   const displayPrice = calculatedPrice || price;
 
+
   return (
-    <TouchableOpacity
-      onPress={() => router.push(`/product/${id}`)}
-      style={{ flex: 1 }}
-    >
-      <Card
-        style={{
-          flex: 1,
-          overflow: "hidden",
-          //   borderRadius: 8,
-          backgroundColor: "#fff",
-        }}
-      >
+    <TouchableOpacity onPress={()=>router.push(`/product/${id}`)} activeOpacity={0.84} style={cardStyles.touchable}>
+      <Card style={cardStyles.card}>
         {/* Image Section */}
-        <Box width="100%" aspectRatio={1} overflow="hidden" position="relative">
+        <Box width="100%" aspectRatio={0.8} overflow="hidden" position="relative">
           <Image
             source={{ uri: mainImageUrl }}
-            style={{ width: "100%", height: "100%" }}
+            style={cardStyles.image}
             contentFit="cover"
             accessibilityLabel={name}
-            // placeholder={require('../assets/images/react-logo.png')}
+            transition={180}
+            cachePolicy="memory-disk"
           />
-
           {discount && discount > 0 && (
-            <Badge
-              style={{
-                position: "absolute",
-                top: 8,
-                left: 8,
-                backgroundColor: "#22c55e",
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                borderRadius: 4,
-              }}
-            >
+            <Badge style={cardStyles.badge}>
               <Text color="#fff" fontSize={12} fontWeight="bold">
                 {discount}% OFF
               </Text>
             </Badge>
           )}
         </Box>
-
         {/* Content Section */}
-        <Box padding={8}>
+        <Box padding={10} style={{ minHeight: 76 }}>
           <Text
             fontSize={16}
             fontWeight="600"
@@ -76,26 +56,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             {name}
           </Text>
-
-          <Box
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            marginTop={4}
-          >
-            <Text fontSize={14} fontWeight="500">
+          <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginTop={6}>
+            <Text fontSize={15} fontWeight="600">
               ₹ {Number(displayPrice).toLocaleString()}
             </Text>
             {discount && discount > 0 && (
               <Text
                 fontSize={12}
-                style={{ textDecorationLine: "line-through", color: "#6b7280" }}
+                style={cardStyles.strikeText}
               >
                 ₹ {Number(price).toLocaleString()}
               </Text>
             )}
           </Box>
-
           {description && (
             <Text
               fontSize={12}
@@ -111,4 +84,42 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </Card>
     </TouchableOpacity>
   );
-};
+});
+
+const cardStyles = StyleSheet.create({
+  touchable: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  card: {
+    flex: 1,
+    backgroundColor: "#fff",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.11,
+    shadowRadius: 22,
+    overflow: "hidden",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#f3f4f6",
+  },
+  badge: {
+    position: "absolute",
+    top: 9,
+    left: 9,
+    backgroundColor: "#22c55e",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    elevation: 2,
+    zIndex: 2,
+  },
+  strikeText: {
+    textDecorationLine: "line-through",
+    color: "#6b7280",
+    marginLeft: 7,
+  }
+});
